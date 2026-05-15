@@ -143,6 +143,73 @@ namespace AmericanPricer
     // antithetic paths share the regression step and can bias the continuation
     // estimate. Increase M for tighter confidence intervals.
 
+    double lsmc_put_quiet(double S, double K, double T, double r, double sigma,
+                          int M, int N, int R, int seed)
+    {
+        double dt = T / N;
+        double disc = std::exp(-r * dt);
+
+        std::mt19937_64 rng(seed);
+        std::normal_distribution<double> ndist(0.0, 1.0);
+        double fwd = (r - 0.5 * sigma * sigma) * dt;
+        double vol = sigma * std::sqrt(dt);
+
+        std::vector<std::vector<double>> paths(M, std::vector<double>(N + 1));
+        for (int i = 0; i < M; i++)
+        {
+            paths[i][0] = S;
+            for (int j = 1; j <= N; j++)
+                paths[i][j] = paths[i][j - 1] * std::exp(fwd + vol * ndist(rng));
+        }
+
+        std::vector<double> V(M);
+        for (int i = 0; i < M; i++)
+            V[i] = std::max(K - paths[i][N], 0.0);
+
+        for (int n = N - 1; n >= 1; n--)
+        {
+            std::vector<int> itm;
+            itm.reserve(M);
+            for (int i = 0; i < M; i++)
+                if (paths[i][n] < K)
+                    itm.push_back(i);
+
+            for (int i = 0; i < M; i++)
+                V[i] *= disc;
+
+            if (itm.empty())
+                continue;
+
+            std::vector<std::vector<double>> XtX(R, std::vector<double>(R, 0.0));
+            std::vector<double> Xty(R, 0.0);
+
+            for (int idx : itm)
+            {
+                auto phi = basis(paths[idx][n], R);
+                double y = V[idx];
+                for (int j = 0; j < R; j++)
+                {
+                    Xty[j] += phi[j] * y;
+                    for (int l = 0; l < R; l++)
+                        XtX[j][l] += phi[j] * phi[l];
+                }
+            }
+
+            std::vector<double> beta = solve_ls(XtX, Xty, R);
+
+            for (int idx : itm)
+            {
+                double s = paths[idx][n];
+                double intrinsic = K - s;
+                double cont = poly_eval(beta, s);
+                if (intrinsic > cont)
+                    V[idx] = intrinsic;
+            }
+        }
+
+        return disc * std::accumulate(V.begin(), V.end(), 0.0) / M;
+    }
+
     double lsmc_put(double S, double K, double T, double r, double sigma,
                     int M, int N, int R, int seed)
     {
