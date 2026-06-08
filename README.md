@@ -4,7 +4,7 @@ In c++, collection of using BS methods, MC methods, LS for American.
 ## American LSMC benchmark
 
 The benchmark driver compares the same Longstaff-Schwartz American put setup in
-Python, C++, and CUDA when CUDA is available:
+Python, C++, and CUDA.
 
 ```bash
 python american_lsmc_benchmark.py --paths 10000 --steps 100 --repeats 3
@@ -16,7 +16,7 @@ For a CPU-only machine, skip CUDA explicitly:
 python american_lsmc_benchmark.py --skip-cuda
 ```
 
-In Google Colab, select a GPU runtime, upload or clone this repository, then run:
+Can run in Google Colab to use their GPUS, Run:
 
 ```bash
 !nvidia-smi
